@@ -6,8 +6,7 @@
  */
 
 #include "MemoryManagement.h"
-#include "gemue/bib/system/SystemId.h"
-#include "gemue/bib/system/para/value/valueInt32/InternalValue32BitInt.h"
+
 
 MemoryManagement::MemoryManagement(){
 	m_memoryCount = 0;
