@@ -1,0 +1,214 @@
+/*
+ * MemoryManagement.cpp
+ *
+ *  Created on: 07.01.2023
+ *      Author: melah
+ */
+
+#include "MemoryManagement.h"
+#include "gemue/bib/system/SystemId.h"
+#include "gemue/bib/system/para/value/valueInt32/InternalValue32BitInt.h"
+
+MemoryManagement::MemoryManagement(){
+	m_memoryCount = 0;
+}
+MemoryManagement::~MemoryManagement(){
+
+}
+
+bool MemoryManagement::requestMemory(Persistable* persistObject){
+	bool ret = false;
+	if(persistObject == nullptr) return ret;
+
+	for(auto memory : m_memoryList){
+		if(persistObject->bufferId == memory->getMemoryId()){
+			//The memory where the persistObject belong to is found
+			for(auto memoryNode : memory->m_memoryNodeList){
+				if(memoryNode->getBufferId() == persistObject->bufferId){
+
+				}
+			}
+
+			break;
+		}
+	}
+
+
+	return ret;
+}
+void MemoryManagement::registerMemory(Memory* memory){
+	if(memory == nullptr) return;
+
+	m_memoryCount++;
+	m_memoryList.push_back(memory);
+}
+
+void MemoryManagement::readMemory(Memory* memory){
+
+	if(memory == nullptr) return;
+
+	if(memory->getMemoryType() == Memory::EMemoryType::Eeprom){
+		if(memory->m_shadow != nullptr){
+
+			//read all blocks in memory sector 1
+			//Byte 0..3 for StartAddress Sector 1
+			//Byte 4..7 for StartAddress Sector 2
+			//Byte 8 and 9 for CRC
+			// Blocks with data start at Byte 10
+			for(uint32_t addr=memory->m_shadow->nextfreeSpaceSector1; addr<memory->m_shadow->startAddrSector2; ){
+				//read 8 Bytes
+				// 	- 4 Bytes for the start symbol (ss)
+				auto ss = readMemory4Bytes(memory, addr);
+				//addr += 4;
+				if(memory->SK == ss){
+					auto blockIdAndLength = readMemory4Bytes(memory, addr+4);
+					//addr += 4;
+					// 	- 2 Bytes for the Block Id
+					uint16_t blockId = (blockIdAndLength >> 16) & 0xFFFF;
+					// 	- 2 Bytes for the length
+					uint16_t length = blockIdAndLength & 0xFFFF;
+					auto dataId = readMemory4Bytes(memory, addr+8);
+					addr = length;
+					memory->m_shadow->nextfreeSpaceSector1 += length;
+
+					//suchen ob die node schon registriert wurden.
+					auto node = memory->findNodeInMemory(dataId);
+
+					if(node != nullptr){
+						//node existiert schon in der Liste. Daten wiederherstellen
+
+
+
+					}else{
+						//node existiert noch nicht in der Liste. Neue Node erstellen
+						// und registrieren.
+
+						MemoryNode* nodeNew = new MemoryNode(blockId, length, dataId, 1);
+						memory->registerMemoryNode(nodeNew);
+						//nodeNew->m_ptRawdata->
+
+					}
+
+					if((blockId == 0x0005) || (blockId == 0x0006)){
+						//parameter - 0x0005
+						//default parameter - 0x0006
+						//read
+
+					}
+
+
+				}else{
+					break;
+				}
+			}
+
+		}
+	}
+
+}
+
+uint32_t MemoryManagement::readMemory4Bytes(Memory* memory, uint32_t addr){
+
+
+	return 0;
+}
+uint16_t MemoryManagement::readMemory2Bytes(Memory* memory, uint32_t addr){
+
+	return 0;
+}
+uint8_t MemoryManagement::readMemory1Byte(Memory* memory, uint32_t addr){
+
+	return 0;
+}
+
+void MemoryManagement::readBlock(Memory* memory, MemoryNode* node){
+
+}
+void MemoryManagement::writeBlock(Memory* memory, MemoryNode* node){
+
+}
+void MemoryManagement::readMemory(uint8_t* dst, Memory* memory, uint32_t addr, uint32_t size){
+
+}
+
+/*******************************************************************************
+ * Die Routine wird aktiviert, wenn ein Parameter Wert oder ein Default Wert
+ * eines Parameters in den Festspeicher geschrieben werden soll.
+ *
+ * Achtung:
+ * Vor dem Zugriff auf die Daten des übergebenen Parameter Objekts muss der
+ * Zugriff auf den Wert angefordert werden. Nachdem die Daten gelesen oder
+ * geschrieben sind, muss der Zugriff wieder freigegeben werden.
+ *
+ * @param id			ID des Parameters, der gesichert werden muss.
+ * @param destination	Information, ob der Wert oder der Default Wert geändert
+ * 						wurde.
+ * @param paraSet		Parametersatz, dessen Wert sich geändert hat.
+ * @param value			Objekt, in dem der Parameter Wert verwaltet wird.
+ ******************************************************************************/
+		void MemoryManagement::writeParaValue(	uint32_t id,
+										MEMORY_PARA_DESTINATION destination,
+										uint32_t paraSet,
+										InternalValue* value ){
+
+		}
+
+/*******************************************************************************
+ * Die Routine wird informiert, wenn sich der Parameter Wert eines Parameters
+ * geändert hat, dieser aber erst bei Spannungsausfall gespeichert werden soll.
+ *
+ * @param id		ID des Parameters, der gesichert werden muss.
+ * @param paraSet	Parametersatz, dessen Wert sich geändert hat.
+ ******************************************************************************/
+ void MemoryManagement::setWriteParaInfo(	uint32_t id, uint32_t paraSet ){
+
+	 uint32_t key = ((paraSet & 0xFF) << 24) | (id & MASK_PARA_ID);
+
+	 m_paraPowerDownList[key] = paraSet;
+
+	 // in der onShutdown zu implementieren
+	 for(const auto& [key, value]: m_paraPowerDownList ){
+		 auto pid = key & MASK_PARA_ID;
+		 auto paraSetValue = value;
+		 if(paramList != nullptr){
+			auto param = paramList->getParameter(pid);
+			if(param != nullptr){
+				auto memory = param->getMemory();
+				if(memory != nullptr){
+					//erzwinge das Speichen von Parameter beim shutdown
+					//(zweite Parameter von writeToMemory is true
+					memory->writeToMemory(paraSetValue, true);
+				}
+			}
+		 }
+
+	 }
+ }
+
+/*******************************************************************************
+ * Die Routine wird aktiviert, wenn der Listener im "ParaMemory" Objekt
+ * hinterlegt wird.
+ *
+ * Ihr wird das Objekt, in das die Parameter Werte geschrieben werden können,
+ * übergeben. In dieses Objekt werden die Daten, die aus dem Festspeicher
+ * gelesen werden, geschrieben.
+ *
+ * Achtung:
+ * Da erst der Parameter erzeugt und seine Verknüpfungen hergestellt werden,
+ * stehen die Objekte mit dem Parameterwert zur Verfügung, wenn die Listener
+ * der Speicherverwaltung hinterlegt werden.
+ *
+ * @param destination	Information, ob der Wert oder der Default Wert geändert
+ * 						wurde.
+ * @param value			Objekt, in dem der Parameter Wert verwaltet wird.
+ ******************************************************************************/
+ void MemoryManagement::setValueData(	MEMORY_PARA_DESTINATION destination, InternalValue* value ){
+
+	 value->setValue(0, 0, 0);
+	 auto paraset = value->getParaSets();
+
+	 InternalValue32BitInt* test = static_cast<InternalValue32BitInt*>(value);
+
+
+ }
+
