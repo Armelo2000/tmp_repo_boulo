@@ -11,8 +11,7 @@
 
 #include "Memory.h"
 #include "Persistable.h"
-#include "gemue/bib/system/para/memory/MemoryManagementParaListener.h"
-#include "gemue/bib/system/para/list/ParaList.h"
+
 #include <map>
 
 using namespace ParameterData;
